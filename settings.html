@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตั้งค่า · Access Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans','IBM Plex Sans Thai',sans-serif;background:#e8ebf0;color:#16243d;-webkit-font-smoothing:antialiased;min-height:100vh;padding:24px 14px 60px;}
+  .wrap{max-width:640px;margin:0 auto;}
+  .head{display:flex;align-items:center;gap:13px;margin-bottom:18px;}
+  .logo{width:44px;height:44px;border-radius:12px;background:#16243d;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;}
+  .head h1{font-size:20px;font-weight:700;}
+  .head .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.8px;color:#5b6675;text-transform:uppercase;}
+  .card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 10px 30px -12px rgba(15,27,48,.18);margin-bottom:16px;}
+  .card h2{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  label{display:block;font-size:12.5px;font-weight:600;color:#6b7686;margin:10px 0 6px;}
+  input[type=text],input[type=date]{width:100%;padding:11px 13px;border:1.5px solid #e1e6ee;border-radius:11px;font-size:13.5px;font-family:'IBM Plex Mono',monospace;color:#16243d;outline:none;}
+  input:focus{border-color:#2f6fed;}
+  .btnrow{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;}
+  button{padding:10px 16px;border:none;border-radius:10px;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .b-save{background:#1f9d57;color:#fff;}
+  .b-test{background:#16243d;color:#fff;}
+  .b-reset{background:#fff;color:#b3261e;border:1.5px solid #f6c9c4;}
+  .msg{margin-top:10px;font-size:12.5px;display:none;padding:9px 12px;border-radius:9px;}
+  .msg.ok{background:#edf9f1;color:#15703d;display:block;}
+  .msg.err{background:#fdeeec;color:#b3261e;display:block;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:#9aa3b2;text-align:left;padding:8px 6px;border-bottom:1px solid #e6e9ef;}
+  td{padding:9px 6px;border-bottom:1px solid #f0f2f6;vertical-align:middle;}
+  .chip{display:inline-block;padding:3px 9px;border-radius:99px;font-size:10.5px;font-weight:700;}
+  .c-ok{background:#d6f0e0;color:#15703d;}
+  .c-exp{background:#f9d4d0;color:#b3261e;}
+  td input[type=date]{padding:6px 8px;font-size:12px;width:140px;}
+  .b-row{padding:6px 10px;font-size:11.5px;background:#2f6fed;color:#fff;border-radius:8px;}
+  .b-off{padding:6px 10px;font-size:11.5px;background:#fff;color:#b3261e;border:1.5px solid #f6c9c4;border-radius:8px;}
+  .loading{color:#9aa3b2;font-size:13px;padding:14px 0;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .foot{text-align:center;margin-top:6px;font-size:12px;color:#8a94a3;}
+  .foot a{color:#2f6fed;text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">⚙️</div>
+    <div>
+      <h1>ตั้งค่าระบบ</h1>
+      <div class="sub">Settings · Access Control</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔗 Webhook URL (Google Apps Script)</h2>
+    <label>URL ปัจจุบันของเครื่องนี้</label>
+    <input type="text" id="whUrl">
+    <div class="btnrow">
+      <button class="b-save" onclick="saveUrl()">บันทึก</button>
+      <button class="b-test" onclick="testUrl()">ทดสอบการเชื่อมต่อ</button>
+      <button class="b-reset" onclick="resetUrl()">คืนค่าเริ่มต้น</button>
+    </div>
+    <div class="msg" id="whMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>🪪 จัดการบัตรผู้รับเหมา <button class="b-row" style="margin-left:auto;" onclick="loadList()">โหลดใหม่</button></h2>
+    <div id="listBox" class="loading">กำลังโหลดทะเบียน...</div>
+  </div>
+
+  <div class="foot"><a href="guard.html">หน้าป้อมยาม</a> · <a href="dashboard.html">Dashboard</a> · <a href="register.html">ลงทะเบียน</a></div>
+</div>
+
+<script>
+  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
+  function apiUrl(){ try{ return localStorage.getItem('gs_webhook') || DEFAULT_URL; }catch(e){ return DEFAULT_URL; } }
+  function showMsg(id, ok, text){ var el=document.getElementById(id); el.className='msg '+(ok?'ok':'err'); el.textContent=text; }
+
+  document.getElementById('whUrl').value = apiUrl();
+
+  function saveUrl(){
+    var v = document.getElementById('whUrl').value.trim();
+    try {
+      if (v && v !== DEFAULT_URL) localStorage.setItem('gs_webhook', v);
+      else localStorage.removeItem('gs_webhook');
+      showMsg('whMsg', true, 'บันทึกแล้ว (มีผลเฉพาะเครื่องนี้)');
+    } catch(e){ showMsg('whMsg', false, 'บันทึกไม่สำเร็จ: '+e.message); }
+  }
+  function resetUrl(){
+    try{ localStorage.removeItem('gs_webhook'); }catch(e){}
+    document.getElementById('whUrl').value = DEFAULT_URL;
+    showMsg('whMsg', true, 'คืนค่าเริ่มต้นแล้ว');
+  }
+  async function testUrl(){
+    showMsg('whMsg', true, 'กำลังทดสอบ...');
+    try {
+      var r = await fetch(document.getElementById('whUrl').value.trim());
+      var t = await r.text();
+      if (t.indexOf('running') >= 0) showMsg('whMsg', true, '✓ เชื่อมต่อสำเร็จ — ' + t.slice(0, 120));
+      else showMsg('whMsg', false, 'ตอบกลับไม่ถูกต้อง: ' + t.slice(0, 120));
+    } catch(e){ showMsg('whMsg', false, '✗ เชื่อมต่อไม่ได้: ' + e.message); }
+  }
+
+  function fmtThai(iso){ if(!iso) return '—'; var p=String(iso).slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
+  function isExpired(iso){ if(!iso) return false; return String(iso).slice(0,10) < new Date().toISOString().slice(0,10); }
+
+  async function loadList(){
+    var box = document.getElementById('listBox');
+    box.className='loading'; box.textContent='กำลังโหลดทะเบียน...';
+    try {
+      var r = await fetch(apiUrl()+'?action=list&t='+Date.now());
+      var j = await r.json();
+      if (j.status!=='ok') throw new Error(j.message||'server error');
+      if (!j.contractors.length){ box.textContent='ยังไม่มีผู้รับเหมาลงทะเบียน'; return; }
+      var rows = j.contractors.map(function(c){
+        var exp = isExpired(c.validTo);
+        return '<tr>'
+          + '<td class="mono">'+c.cardNo+'</td>'
+          + '<td>'+c.company+'<br><span style="color:#8a94a3;">'+c.name+'</span></td>'
+          + '<td><span class="chip '+(exp?'c-exp':'c-ok')+'">'+(exp?'หมดอายุ':'ใช้งานได้')+'</span><br><span style="color:#8a94a3;font-size:11px;">'+fmtThai(c.validTo)+'</span></td>'
+          + '<td><input type="date" id="d_'+c.cardNo+'" value="'+String(c.validTo).slice(0,10)+'"><br>'
+          + '<div style="display:flex;gap:5px;margin-top:5px;">'
+          + '<button class="b-row" onclick="updateCard(\''+c.cardNo+'\')">บันทึก</button>'
+          + '<button class="b-off" onclick="deactivate(\''+c.cardNo+'\')">ระงับ</button>'
+          + '</div></td>'
+          + '</tr>';
+      }).join('');
+      box.className='';
+      box.innerHTML = '<table><thead><tr><th>บัตร</th><th>บริษัท / ชื่อ</th><th>สถานะ</th><th>หมดอายุ / จัดการ</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    } catch(e){ box.className='loading'; box.textContent='โหลดไม่สำเร็จ: '+e.message; }
+  }
+
+  async function updateCard(cardNo){
+    var v = document.getElementById('d_'+cardNo).value;
+    if (!v){ alert('เลือกวันหมดอายุก่อน'); return; }
+    try {
+      var r = await fetch(apiUrl()+'?action=update&cardNo='+encodeURIComponent(cardNo)+'&validTo='+encodeURIComponent(v));
+      var j = await r.json();
+      if (j.status!=='ok') throw new Error(j.message||'error');
+      loadList();
+    } catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+  }
+  async function deactivate(cardNo){
+    if (!confirm('ระงับบัตร '+cardNo+' ? (ตั้งวันหมดอายุเป็นเมื่อวาน)')) return;
+    var y = new Date(Date.now()-864e5).toISOString().slice(0,10);
+    try {
+      var r = await fetch(apiUrl()+'?action=update&cardNo='+encodeURIComponent(cardNo)+'&validTo='+y);
+      var j = await r.json();
+      if (j.status!=='ok') throw new Error(j.message||'error');
+      loadList();
+    } catch(e){ alert('ระงับไม่สำเร็จ: '+e.message); }
+  }
+
+  loadList();
+</script>
+</body>
+</html>
