@@ -41,7 +41,14 @@
   .mono{font-family:'IBM Plex Mono',monospace;font-weight:600;}
   .foot{text-align:center;margin-top:6px;font-size:12px;color:#8a94a3;}
   .foot a{color:#2f6fed;text-decoration:none;}
+  .b-qr{padding:6px 10px;font-size:11.5px;background:#16243d;color:#fff;border-radius:8px;}
+  .qr-ov{display:none;position:fixed;inset:0;background:rgba(15,27,48,.6);z-index:100;align-items:center;justify-content:center;}
+  .qr-ov.show{display:flex;}
+  .qr-card{background:#fff;border-radius:16px;padding:24px;text-align:center;max-width:300px;}
+  .qr-card .cn{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;letter-spacing:2px;margin-bottom:12px;}
+  @media print{ body>*{display:none !important;} .qr-ov.show{display:flex !important;position:static;background:#fff;} }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -71,6 +78,16 @@
   </div>
 
   <div class="foot"><a href="guard.html">หน้าป้อมยาม</a> · <a href="dashboard.html">Dashboard</a> · <a href="register.html">ลงทะเบียน</a></div>
+</div>
+
+<div class="qr-ov" id="qrOv" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="qr-card">
+    <div class="cn" id="qrCardNo">CTR-000</div>
+    <div id="qrHolder" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
+    <div style="font-size:11.5px;color:#8a94a3;margin-bottom:12px;">แสดง QR ที่ป้อมยามเพื่อสแกนเข้า-ออก</div>
+    <button class="b-row" onclick="window.print()">🖨 พิมพ์</button>
+    <button class="b-off" onclick="document.getElementById('qrOv').classList.remove('show')">ปิด</button>
+  </div>
 </div>
 
 <script>
@@ -124,6 +141,7 @@
           + '<div style="display:flex;gap:5px;margin-top:5px;">'
           + '<button class="b-row" onclick="updateCard(\''+c.cardNo+'\')">บันทึก</button>'
           + '<button class="b-off" onclick="deactivate(\''+c.cardNo+'\')">ระงับ</button>'
+          + '<button class="b-qr" onclick="showQR(\''+c.cardNo+'\')">QR</button>'
           + '</div></td>'
           + '</tr>';
       }).join('');
@@ -151,6 +169,14 @@
       if (j.status!=='ok') throw new Error(j.message||'error');
       loadList();
     } catch(e){ alert('ระงับไม่สำเร็จ: '+e.message); }
+  }
+
+  function showQR(cardNo){
+    document.getElementById('qrCardNo').textContent = cardNo;
+    var h = document.getElementById('qrHolder');
+    h.innerHTML = '';
+    new QRCode(h, { text: cardNo, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    document.getElementById('qrOv').classList.add('show');
   }
 
   loadList();

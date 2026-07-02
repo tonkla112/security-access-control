@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สแกน QR · Access Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans Thai',sans-serif;background:#0f1b30;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 14px;}
+  h1{font-size:18px;font-weight:700;margin:8px 0 4px;}
+  .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:16px;}
+  #reader{width:min(420px,92vw);border-radius:16px;overflow:hidden;background:#16243d;}
+  #status{margin-top:14px;font-size:14px;color:rgba(255,255,255,.75);text-align:center;min-height:22px;}
+  .back{margin-top:18px;color:#8ab4ff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 22px;border:1.5px solid rgba(138,180,255,.4);border-radius:11px;}
+  .ok{color:#3ad07a;font-weight:700;}
+</style>
+</head>
+<body>
+  <h1>📷 สแกน QR ผู้รับเหมา</h1>
+  <div class="sub">QR Scanner · Access Control</div>
+  <div id="reader"></div>
+  <div id="status">กำลังเปิดกล้อง... (อนุญาตการใช้กล้องเมื่อเบราว์เซอร์ถาม)</div>
+  <a class="back" href="guard.html">← กลับหน้าป้อมยาม</a>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script>
+  var done = false;
+  function onScan(text){
+    if (done) return;
+    var code = String(text).trim();
+    if (!code) return;
+    done = true;
+    document.getElementById('status').innerHTML = '<span class="ok">✓ พบ: ' + code.replace(/</g,'&lt;') + '</span> — กำลังตรวจสอบ...';
+    try { scanner.stop(); } catch(e){}
+    setTimeout(function(){ location.href = 'guard.html?card=' + encodeURIComponent(code); }, 500);
+  }
+  var scanner = new Html5Qrcode('reader');
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 240, height: 240 } },
+    onScan,
+    function(){}
+  ).then(function(){
+    document.getElementById('status').textContent = 'เล็ง QR ให้อยู่ในกรอบ';
+  }).catch(function(err){
+    document.getElementById('status').textContent = '✗ เปิดกล้องไม่ได้: ' + err + ' — ตรวจสิทธิ์กล้องของเบราว์เซอร์';
+  });
+</script>
+</body>
+</html>
