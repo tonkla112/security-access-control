@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ลงทะเบียนผู้รับเหมา · Access Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans','IBM Plex Sans Thai',sans-serif;background:#e8ebf0;color:#16243d;-webkit-font-smoothing:antialiased;min-height:100vh;padding:24px 14px 60px;}
+  .wrap{max-width:560px;margin:0 auto;}
+  .head{display:flex;align-items:center;gap:13px;margin-bottom:18px;}
+  .logo{width:44px;height:44px;border-radius:12px;background:#16243d;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;}
+  .head h1{font-size:20px;font-weight:700;}
+  .head .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.8px;color:#5b6675;text-transform:uppercase;}
+  .card{background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 10px 30px -12px rgba(15,27,48,.18);}
+  label{display:block;font-size:12.5px;font-weight:600;color:#6b7686;margin:14px 0 6px;}
+  label .req{color:#d7372c;}
+  input,select{width:100%;padding:12px 14px;border:1.5px solid #e1e6ee;border-radius:11px;font-size:15px;font-family:inherit;color:#16243d;background:#fff;outline:none;}
+  input:focus,select:focus{border-color:#2f6fed;}
+  .row{display:flex;gap:12px;}
+  .row>div{flex:1;}
+  button.submit{width:100%;margin-top:20px;padding:14px;border:none;border-radius:12px;background:#1f9d57;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
+  button.submit:disabled{background:#9aa3b2;cursor:wait;}
+  .err{margin-top:12px;color:#b3261e;font-size:13px;display:none;}
+  /* success */
+  .success{display:none;text-align:center;padding:26px 18px;}
+  .success .badge{width:64px;height:64px;border-radius:50%;background:#d6f0e0;color:#15703d;font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+  .success .cardno{font-family:'IBM Plex Mono',monospace;font-size:34px;font-weight:600;letter-spacing:2px;background:#16243d;color:#fff;border-radius:14px;padding:16px 10px;margin:14px 0;}
+  .success .meta{font-size:14px;color:#46505f;line-height:1.7;}
+  button.again{margin-top:18px;padding:12px 22px;border:1.5px solid #16243d;border-radius:11px;background:#fff;color:#16243d;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .foot{text-align:center;margin-top:16px;font-size:12px;color:#8a94a3;}
+  .foot a{color:#2f6fed;text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">🛡</div>
+    <div>
+      <h1>ลงทะเบียนผู้รับเหมา</h1>
+      <div class="sub">Contractor Registration · Access Control</div>
+    </div>
+  </div>
+
+  <div class="card" id="formCard">
+    <form id="regForm">
+      <label>บริษัท / หน่วยงาน <span class="req">*</span></label>
+      <input id="company" required placeholder="เช่น รุ่งเรือง เอ็นจิเนียริ่ง จำกัด">
+
+      <label>ชื่อ-นามสกุล ผู้ปฏิบัติงาน <span class="req">*</span></label>
+      <input id="name" required placeholder="เช่น สมชาย ใจดี">
+
+      <div class="row">
+        <div>
+          <label>เลขบัตร ปชช. (4 ตัวท้าย)</label>
+          <input id="id4" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="เช่น 1234">
+        </div>
+        <div>
+          <label>เบอร์โทร <span class="req">*</span></label>
+          <input id="phone" required inputmode="tel" placeholder="เช่น 0812345678">
+        </div>
+      </div>
+
+      <label>ประเภทงาน</label>
+      <select id="workType">
+        <option>ก่อสร้าง/ต่อเติม</option>
+        <option>ไฟฟ้า</option>
+        <option>เครื่องกล/ซ่อมบำรุง</option>
+        <option>ขนส่ง</option>
+        <option>ทำความสะอาด</option>
+        <option>สวน/ภูมิทัศน์</option>
+        <option>อื่น ๆ</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label>เริ่มเข้าพื้นที่ <span class="req">*</span></label>
+          <input id="validFrom" type="date" required>
+        </div>
+        <div>
+          <label>หมดอายุ <span class="req">*</span></label>
+          <input id="validTo" type="date" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>ผู้ติดต่อภายใน</label>
+          <input id="contact" placeholder="เช่น คุณวิภา">
+        </div>
+        <div>
+          <label>แผนก</label>
+          <input id="dept" placeholder="เช่น Facility">
+        </div>
+      </div>
+
+      <button class="submit" id="btnSubmit" type="submit">ลงทะเบียน</button>
+      <div class="err" id="errBox"></div>
+    </form>
+  </div>
+
+  <div class="card success" id="successCard">
+    <div class="badge">✓</div>
+    <div style="font-size:17px;font-weight:700;">ลงทะเบียนสำเร็จ</div>
+    <div class="cardno" id="cardNo">CTR-000</div>
+    <div class="meta" id="successMeta"></div>
+    <button class="again" id="btnAgain">ลงทะเบียนรายต่อไป</button>
+  </div>
+
+  <div class="foot">
+    ข้อมูลบันทึกลง Google Sheet อัตโนมัติ · <a href="guard.html">หน้าป้อมยาม</a> · <a href="dashboard.html">Dashboard</a>
+  </div>
+</div>
+
+<script>
+  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
+  function apiUrl(){ try{ return localStorage.getItem('gs_webhook') || DEFAULT_URL; }catch(e){ return DEFAULT_URL; } }
+  var via = new URLSearchParams(location.search).get('via') || 'office';
+
+  // defaults: from = today, to = +30 days
+  var today = new Date();
+  function iso(d){ return d.toISOString().slice(0,10); }
+  document.getElementById('validFrom').value = iso(today);
+  document.getElementById('validTo').value = iso(new Date(today.getTime() + 30*864e5));
+
+  document.getElementById('regForm').addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var btn = document.getElementById('btnSubmit');
+    var err = document.getElementById('errBox');
+    err.style.display = 'none';
+    var f = function(id){ return document.getElementById(id).value.trim(); };
+
+    if (f('validTo') < f('validFrom')) {
+      err.textContent = 'วันหมดอายุต้องไม่ก่อนวันเริ่ม'; err.style.display = 'block'; return;
+    }
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+
+    var params = new URLSearchParams({
+      action:'register', company:f('company'), name:f('name'), id4:f('id4'),
+      phone:f('phone'), workType:f('workType'), validFrom:f('validFrom'),
+      validTo:f('validTo'), contact:f('contact'), dept:f('dept'), via:via
+    });
+    try {
+      var r = await fetch(apiUrl() + '?' + params.toString());
+      var j = await r.json();
+      if (j.status !== 'ok') throw new Error(j.message || 'server error');
+      document.getElementById('cardNo').textContent = j.cardNo;
+      document.getElementById('successMeta').innerHTML =
+        f('company') + '<br>' + f('name') + '<br>ใช้ได้ถึง ' + f('validTo').split('-').reverse().join('/');
+      document.getElementById('formCard').style.display = 'none';
+      document.getElementById('successCard').style.display = 'block';
+      window.scrollTo(0,0);
+    } catch(e) {
+      err.textContent = 'บันทึกไม่สำเร็จ: ' + e.message + ' — ตรวจอินเทอร์เน็ตแล้วลองใหม่';
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'ลงทะเบียน';
+    }
+  });
+
+  document.getElementById('btnAgain').addEventListener('click', function(){
+    document.getElementById('regForm').reset();
+    document.getElementById('validFrom').value = iso(new Date());
+    document.getElementById('validTo').value = iso(new Date(Date.now() + 30*864e5));
+    document.getElementById('successCard').style.display = 'none';
+    document.getElementById('formCard').style.display = 'block';
+  });
+</script>
+</body>
+</html>
