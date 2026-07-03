@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รายงานสรุปรายเดือน · Security Access Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --navy:#16243d; --ink:#1f2937; --mut:#6b7686; --line:#e5e9f0;
+    --green:#0f6e56; --green-bg:#e1f5ee; --red:#a32d2d; --red-bg:#fcebeb;
+    --amber:#854f0b; --amber-bg:#faeeda; --blue:#185fa5; --blue-bg:#e6f1fb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai','IBM Plex Sans',sans-serif;color:var(--ink);background:#eef1f6;padding:24px 16px 60px}
+  .page{max-width:900px;margin:0 auto;background:#fff;border-radius:12px;padding:32px 36px;box-shadow:0 1px 4px rgba(22,36,61,.08)}
+  header.rp{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--navy);padding-bottom:16px;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+  h1{font-size:20px;color:var(--navy)}
+  .sub{font-size:12.5px;color:var(--mut);margin-top:4px}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .controls input[type=month]{font:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:8px}
+  .btn{font:inherit;font-size:14px;font-weight:600;padding:8px 16px;border:none;border-radius:8px;cursor:pointer}
+  .btn-dark{background:var(--navy);color:#fff}
+  .btn-line{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+  h2{font-size:15px;color:var(--navy);margin:26px 0 10px;padding-left:10px;border-left:4px solid var(--navy)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .kpi{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .v{font-size:24px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace}
+  .kpi .l{font-size:12px;color:var(--mut);margin-top:2px}
+  .kpi.warn .v{color:var(--red)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600;font-size:12.5px}
+  td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace}
+  tr:nth-child(even) td{background:#f8fafc}
+  .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:99px}
+  .p-green{background:var(--green-bg);color:var(--green)}
+  .p-red{background:var(--red-bg);color:var(--red)}
+  .p-amber{background:var(--amber-bg);color:var(--amber)}
+  .chart{display:flex;align-items:flex-end;gap:2px;height:120px;border-bottom:1px solid var(--line);padding-top:6px}
+  .cday{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;min-width:0}
+  .cbar-in{background:#185fa5;border-radius:2px 2px 0 0}
+  .cbar-out{background:#9fc3e8;border-radius:2px 2px 0 0}
+  .cx{display:flex;gap:2px;font-size:9.5px;color:var(--mut);font-family:'IBM Plex Mono',monospace}
+  .cx span{flex:1;text-align:center;min-width:0}
+  .legend{font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:16px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+  .bars{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+  .brow{display:grid;grid-template-columns:60px 1fr 90px;gap:10px;align-items:center}
+  .btrack{background:#eef1f6;border-radius:4px;height:16px;overflow:hidden}
+  .bfill{height:100%;border-radius:4px}
+  .empty{color:var(--mut);font-size:13px;padding:14px;border:1px dashed var(--line);border-radius:8px;text-align:center}
+  #status{font-size:13px;color:var(--mut);padding:8px 0}
+  #status.err{color:var(--red);font-weight:600}
+  .sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:44px;font-size:13px}
+  .sig{text-align:center;color:var(--mut)}
+  .sig .ln{border-bottom:1px dotted #9aa3b2;height:44px;margin-bottom:8px}
+  footer{font-size:11px;color:var(--mut);margin-top:28px;border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+  @media print{
+    body{background:#fff;padding:0}
+    .page{box-shadow:none;border-radius:0;padding:10mm 8mm;max-width:none}
+    .controls,.no-print{display:none!important}
+    h2{break-after:avoid}
+    table,.kpis,.chart{break-inside:avoid}
+    @page{size:A4;margin:10mm}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="rp">
+    <div>
+      <h1>รายงานสรุปการเข้า-ออกผู้รับเหมา ประจำเดือน <span id="mTitle">—</span></h1>
+      <div class="sub">Security Access Control · จัดทำสำหรับฝ่าย HR / Safety · ออกรายงาน: <span id="genAt">—</span></div>
+    </div>
+    <div class="controls">
+      <input type="month" id="month">
+      <button class="btn btn-dark" onclick="load()">โหลด</button>
+      <button class="btn btn-line" onclick="window.print()">🖨 พิมพ์ / PDF</button>
+    </div>
+  </header>
+
+  <div id="status">เลือกเดือนแล้วกด "โหลด"</div>
+  <div id="report" style="display:none">
+
+    <h2>ภาพรวมประจำเดือน</h2>
+    <div class="kpis" id="kpis"></div>
+
+    <h2>ปริมาณเข้า-ออกรายวัน</h2>
+    <div id="dailyWrap">
+      <div class="chart" id="chart"></div>
+      <div class="cx" id="chartX"></div>
+      <div class="legend">
+        <span><i style="background:#185fa5"></i>เข้า</span>
+        <span><i style="background:#9fc3e8"></i>ออก</span>
+      </div>
+    </div>
+
+    <h2>สรุปรายบริษัท</h2>
+    <table id="tblComp">
+      <thead><tr><th>บริษัท</th><th class="num">เข้า (ครั้ง)</th><th class="num">ออก (ครั้ง)</th><th class="num">จำนวนคน (เข้า)</th><th class="num">มีรูปประกอบ</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>อัตราการถ่ายรูปประกอบ (Photo compliance)</h2>
+    <div class="bars" id="photoBars"></div>
+
+    <h2>รายการค้างในพื้นที่ (บันทึกเข้า ไม่มีบันทึกออก)</h2>
+    <div id="stuckWrap"></div>
+
+    <h2>สถานะบัตรผู้รับเหมา (ณ วันออกรายงาน)</h2>
+    <div class="kpis" id="cardKpis" style="margin-bottom:12px"></div>
+    <div id="expWrap"></div>
+
+    <div class="sign no-screen">
+      <div class="sig"><div class="ln"></div>ผู้จัดทำรายงาน (Security / HR)</div>
+      <div class="sig"><div class="ln"></div>ผู้ตรวจสอบ (Safety Manager)</div>
+    </div>
+
+    <footer>
+      <span>ข้อมูลจากระบบ Security Access Control (Google Sheet: AccessLog / Contractors)</span>
+      <span>หน้า 1</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
+function hookUrl(){try{return localStorage.getItem('gs_webhook')||DEFAULT_URL}catch(e){return DEFAULT_URL}}
+const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+(function init(){
+  const d=new Date();
+  $('month').value=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2);
+  load();
+})();
+
+async function load(){
+  const m=$('month').value;
+  if(!m)return;
+  $('status').textContent='กำลังโหลดข้อมูล...';
+  $('status').className='';
+  $('report').style.display='none';
+  try{
+    const res=await fetch(hookUrl()+'?action=report&month='+m);
+    const txt=await res.text();
+    let data;
+    try{data=JSON.parse(txt)}catch(e){
+      throw new Error('Apps Script ยังไม่รองรับ action=report — ต้องอัปเดตโค้ดและ deploy version ใหม่ก่อน');
+    }
+    if(data.status!=='ok')throw new Error(data.message||'unknown error');
+    render(m,data);
+    $('status').textContent='';
+    $('report').style.display='block';
+  }catch(err){
+    $('status').textContent='โหลดไม่สำเร็จ: '+err.message;
+    $('status').className='err';
+  }
+}
+
+function render(m,d){
+  const[y,mo]=m.split('-');
+  $('mTitle').textContent=TH_MONTHS[+mo-1]+' '+(+y+543);
+  $('genAt').textContent=new Date().toLocaleString('th-TH');
+
+  const recs=d.photo.full+d.photo.partial+d.photo.none;
+  const compliance=recs?Math.round((d.photo.full+d.photo.partial)/recs*100):0;
+  $('kpis').innerHTML=[
+    kpi(d.totalIn,'รถ/รายการเข้า'),
+    kpi(d.totalOut,'รถ/รายการออก'),
+    kpi(d.peopleIn,'จำนวนคนเข้า (รวม)'),
+    kpi(compliance+'%','มีรูปประกอบ'),
+    kpi(d.stuck.length,'ค้างในพื้นที่',d.stuck.length>0)
+  ].join('');
+
+  const days=new Date(+y,+mo,0).getDate();
+  let maxV=1;
+  for(let i=1;i<=days;i++){const k=('0'+i).slice(-2),v=d.daily[k];if(v)maxV=Math.max(maxV,v.in,v.out)}
+  let bars='',xs='';
+  for(let i=1;i<=days;i++){
+    const k=('0'+i).slice(-2),v=d.daily[k]||{in:0,out:0};
+    bars+=`<div class="cday" title="วันที่ ${i}: เข้า ${v.in} ออก ${v.out}"><div class="cbar-in" style="height:${Math.round(v.in/maxV*100)}px"></div><div class="cbar-out" style="height:${Math.round(v.out/maxV*100)}px"></div></div>`;
+    xs+=`<span>${i%2===1?i:''}</span>`;
+  }
+  $('chart').innerHTML=bars;$('chartX').innerHTML=xs;
+
+  const comps=Object.entries(d.companies).sort((a,b)=>b[1].in-a[1].in);
+  $('tblComp').querySelector('tbody').innerHTML=comps.length?comps.map(([name,c])=>{
+    const pct=c.recs?Math.round(c.withPhoto/c.recs*100):0;
+    const cls=pct>=80?'p-green':pct>=50?'p-amber':'p-red';
+    return`<tr><td>${esc(name)}</td><td class="num">${c.in}</td><td class="num">${c.out}</td><td class="num">${c.people}</td><td class="num"><span class="pill ${cls}">${pct}%</span></td></tr>`;
+  }).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--mut)">ไม่มีข้อมูลในเดือนนี้</td></tr>';
+
+  $('photoBars').innerHTML=[
+    pbar('ครบ 3 รูป',d.photo.full,recs,'#0f6e56'),
+    pbar('มีบางรูป',d.photo.partial,recs,'#ba7517'),
+    pbar('ไม่มีรูป',d.photo.none,recs,'#a32d2d')
+  ].join('');
+
+  $('stuckWrap').innerHTML=d.stuck.length?
+    `<table><thead><tr><th>วันที่</th><th>เวลาเข้า</th><th>บริษัท</th><th>ทะเบียนรถ</th><th class="num">จำนวนคน</th></tr></thead><tbody>${
+      d.stuck.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.time)}</td><td>${esc(s.company)}</td><td>${esc(s.plate)}</td><td class="num">${s.people||'—'}</td></tr>`).join('')
+    }</tbody></table><div class="sub" style="margin-top:6px">⚠ ควรตรวจสอบ: อาจยังอยู่ในพื้นที่จริง หรือ รปภ. ลืมบันทึกออก</div>`
+    :'<div class="empty">✓ ไม่มีรายการค้าง — ทุกรายการเข้ามีบันทึกออกครบ</div>';
+
+  $('cardKpis').innerHTML=[
+    kpi(d.cards.total,'บัตรทั้งหมด'),
+    kpi(d.cards.active,'ใช้งานได้'),
+    kpi(d.cards.expired,'หมดอายุแล้ว',d.cards.expired>0),
+    kpi(d.cards.expiring.length,'ใกล้หมดอายุ ≤30 วัน',d.cards.expiring.length>0)
+  ].join('');
+
+  $('expWrap').innerHTML=d.cards.expiring.length?
+    `<table><thead><tr><th>รหัสบัตร</th><th>ชื่อ-สกุล</th><th>บริษัท</th><th>หมดอายุ</th></tr></thead><tbody>${
+      d.cards.expiring.map(c=>`<tr><td>${esc(c.cardNo)}</td><td>${esc(c.name)}</td><td>${esc(c.company)}</td><td><span class="pill p-amber">${esc(c.validTo)}</span></td></tr>`).join('')
+    }</tbody></table>`
+    :'<div class="empty">✓ ไม่มีบัตรใกล้หมดอายุใน 30 วัน</div>';
+}
+
+function kpi(v,l,warn){return`<div class="kpi${warn?' warn':''}"><div class="v">${v}</div><div class="l">${l}</div></div>`}
+function pbar(label,v,total,color){
+  const pct=total?Math.round(v/total*100):0;
+  return`<div class="brow"><span>${label}</span><div class="btrack"><div class="bfill" style="width:${pct}%;background:${color}"></div></div><span class="num" style="font-family:'IBM Plex Mono',monospace">${v} (${pct}%)</span></div>`;
+}
+</script>
+</body>
+</html>
