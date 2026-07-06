@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>พิมพ์บัตร Contractor · Access Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{--navy:#16243d;--mut:#6b7686;--line:#e5e9f0;--green:#0f9d58;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai',sans-serif;background:#eef1f6;color:#1f2937;padding:20px}
+  .bar{max-width:1000px;margin:0 auto 16px;background:#fff;border-radius:12px;padding:16px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  h1{font-size:17px;color:var(--navy);margin-right:auto}
+  h1 small{display:block;font-size:11px;color:var(--mut);font-weight:400;letter-spacing:1px}
+  .btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer}
+  .b-dark{background:var(--navy);color:#fff}
+  .b-line{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+  #status{max-width:1000px;margin:0 auto 12px;font-size:13px;color:var(--mut)}
+  .sheet{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(88mm,1fr));gap:14px}
+
+  .slot{position:relative}
+  .slot .pick{position:absolute;top:-8px;left:-8px;z-index:5;width:22px;height:22px;accent-color:var(--navy);cursor:pointer}
+  .slot.off .card{opacity:.25;filter:grayscale(1)}
+
+  .card{width:85.6mm;height:54mm;background:#fff;border-radius:3.18mm;overflow:hidden;display:flex;flex-direction:column;border:1px solid #d8dee8;box-shadow:0 1px 4px rgba(22,36,61,.12);margin:0 auto}
+  .c-top{background:var(--navy);color:#fff;display:flex;align-items:center;gap:2.2mm;padding:0 3.5mm;height:9.5mm;flex:none}
+  .c-top .sh{width:5.5mm;height:5.5mm;border-radius:1.4mm;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:3.4mm;flex:none}
+  .c-top .t1{font-size:3.4mm;font-weight:700;line-height:1.15}
+  .c-top .t2{font-size:2.1mm;letter-spacing:.5mm;opacity:.75;font-family:'IBM Plex Mono',monospace}
+  .c-top .tag{margin-left:auto;font-size:2.4mm;font-weight:700;background:#fff;color:var(--navy);padding:.8mm 2.2mm;border-radius:99px;letter-spacing:.3mm}
+  .c-body{flex:1;display:flex;gap:3mm;padding:2.6mm 3.5mm;min-height:0}
+  .qrbox{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1mm}
+  .qrbox .qr{width:26mm;height:26mm;padding:1.2mm;border:.4mm solid var(--navy);border-radius:1.5mm;background:#fff;display:flex;align-items:center;justify-content:center}
+  .qrbox .qr img,.qrbox .qr canvas{width:100%!important;height:100%!important}
+  .qrbox .cn{font-family:'IBM Plex Mono',monospace;font-size:4.6mm;font-weight:600;letter-spacing:.8mm;color:var(--navy)}
+  .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1.2mm}
+  .info .nm{font-size:4.2mm;font-weight:700;color:var(--navy);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .info .co{font-size:2.9mm;color:#374151;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .info .wt{font-size:2.6mm;color:var(--mut)}
+  .info .vd{font-size:2.8mm;font-weight:600;color:#854f0b;background:#faeeda;border-radius:99px;padding:.6mm 2.4mm;align-self:flex-start}
+  .c-foot{flex:none;height:3.4mm;background:linear-gradient(90deg,var(--green) 0 33%,#f4b400 33% 66%,#db4437 66% 100%)}
+  .c-foot2{flex:none;font-size:2.2mm;color:var(--mut);padding:.8mm 3.5mm 1.2mm;display:flex;justify-content:space-between}
+
+  @media print{
+    body{background:#fff;padding:0}
+    .bar,#status,.slot .pick{display:none!important}
+    .sheet{max-width:none;display:grid;grid-template-columns:repeat(2,85.6mm);justify-content:center;gap:6mm 8mm}
+    .slot.off{display:none}
+    .card{box-shadow:none;border:.3mm dashed #9aa3b2;break-inside:avoid}
+    @page{size:A4;margin:8mm}
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>พิมพ์บัตร Contractor พร้อม QR<small>CONTRACTOR ID CARD · CR80 85.6×54 mm</small></h1>
+  <button class="btn b-line" onclick="setAll(true)">เลือกทั้งหมด</button>
+  <button class="btn b-line" onclick="setAll(false)">ไม่เลือกเลย</button>
+  <button class="btn b-dark" onclick="window.print()">🖨 พิมพ์บัตรที่เลือก</button>
+</div>
+<div id="status">กำลังโหลดทะเบียนผู้รับเหมา...</div>
+<div class="sheet" id="sheet"></div>
+
+<script>
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
+function hookUrl(){try{return localStorage.getItem('gs_webhook')||DEFAULT_URL}catch(e){return DEFAULT_URL}}
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const thDate=s=>{if(!s)return'—';const d=new Date(s);if(isNaN(d))return esc(s);return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'})};
+
+async function load(){
+  try{
+    const res=await fetch(hookUrl()+'?action=list');
+    const data=await res.json();
+    if(data.status!=='ok')throw new Error(data.message||'error');
+    const list=data.contractors||[];
+    if(!list.length){document.getElementById('status').textContent='ยังไม่มีผู้รับเหมาในทะเบียน';return}
+    render(list);
+    document.getElementById('status').textContent='ทั้งหมด '+list.length+' ใบ · ติ๊กเลือกใบที่ต้องการ แล้วกด "พิมพ์บัตรที่เลือก" (บัตรขนาดมาตรฐาน CR80 — พิมพ์ A4 แล้วตัดตามรอยประ)';
+  }catch(err){
+    document.getElementById('status').textContent='โหลดไม่สำเร็จ: '+err.message;
+  }
+}
+
+function render(list){
+  const sheet=document.getElementById('sheet');
+  sheet.innerHTML=list.map((c,i)=>`
+  <div class="slot" id="slot${i}">
+    <input type="checkbox" class="pick" checked onchange="document.getElementById('slot${i}').classList.toggle('off',!this.checked)">
+    <div class="card">
+      <div class="c-top">
+        <div class="sh">🛡</div>
+        <div>
+          <div class="t1">บัตรผู้รับเหมา</div>
+          <div class="t2">CONTRACTOR PASS</div>
+        </div>
+        <div class="tag">${esc(c.cardNo)}</div>
+      </div>
+      <div class="c-body">
+        <div class="qrbox">
+          <div class="qr" id="qr${i}"></div>
+          <div class="cn">${esc(c.cardNo)}</div>
+        </div>
+        <div class="info">
+          <div class="nm">${esc(c.name)}</div>
+          <div class="co">${esc(c.company)}</div>
+          <div class="wt">${esc(c.workType||'')}${c.contact?' · ติดต่อ: '+esc(c.contact):''}</div>
+          <div class="vd">มีผลถึง ${thDate(c.validTo)}</div>
+        </div>
+      </div>
+      <div class="c-foot2"><span>แสดงบัตรทุกครั้งที่เข้า-ออกพื้นที่ · สแกน QR ที่ป้อมยาม</span><span>ACCESS CTRL</span></div>
+      <div class="c-foot"></div>
+    </div>
+  </div>`).join('');
+  list.forEach((c,i)=>{
+    new QRCode(document.getElementById('qr'+i),{text:c.cardNo,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
+  });
+}
+
+function setAll(v){
+  document.querySelectorAll('.slot').forEach(s=>{
+    s.classList.toggle('off',!v);
+    s.querySelector('.pick').checked=v;
+  });
+}
+load();
+</script>
+</body>
+</html>
