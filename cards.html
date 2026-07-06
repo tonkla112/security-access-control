@@ -6,7 +6,7 @@
 <title>พิมพ์บัตร Contractor · Access Control</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{--navy:#16243d;--mut:#6b7686;--line:#e5e9f0;--green:#0f9d58;}
@@ -25,11 +25,11 @@
   .slot .pick{position:absolute;top:-8px;left:-8px;z-index:5;width:22px;height:22px;accent-color:var(--navy);cursor:pointer}
   .slot.off .card{opacity:.25;filter:grayscale(1)}
 
-  .card{width:85.6mm;height:54mm;background:#fff;border-radius:3.18mm;overflow:hidden;display:flex;flex-direction:column;border:1px solid #d8dee8;box-shadow:0 1px 4px rgba(22,36,61,.12);margin:0 auto}
+  .card{width:85.6mm;height:54mm;background:#fff;border-radius:3.18mm;overflow:hidden;display:flex;flex-direction:column;border:1px solid #d8dee8;box-shadow:0 1px 4px rgba(22,36,61,.12);margin:0 auto;font-family:'IBM Plex Sans Thai','Noto Sans SC',sans-serif}
   .c-top{background:var(--navy);color:#fff;display:flex;align-items:center;gap:2.2mm;padding:0 3.5mm;height:9.5mm;flex:none}
   .c-top .sh{width:7.2mm;height:5.5mm;border-radius:1mm;background:#000;display:flex;align-items:center;justify-content:center;flex:none;font-family:Arial,'Helvetica Neue',sans-serif;font-style:italic;font-weight:900;font-size:3.3mm;letter-spacing:-.2mm;color:#fff;padding-right:.4mm}
-  .c-top .t1{font-size:3.4mm;font-weight:700;line-height:1.15}
-  .c-top .t2{font-size:2.1mm;letter-spacing:.5mm;opacity:.75;font-family:'IBM Plex Mono',monospace}
+  .c-top .t1{font-size:3.2mm;font-weight:700;line-height:1.15}
+  .c-top .t2{font-size:2mm;letter-spacing:.4mm;opacity:.75;font-family:'IBM Plex Mono',monospace}
   .c-top .tag{margin-left:auto;font-size:2.4mm;font-weight:700;background:#fff;color:var(--navy);padding:.8mm 2.2mm;border-radius:99px;letter-spacing:.3mm}
   .c-body{flex:1;display:flex;gap:3mm;padding:2.6mm 3.5mm;min-height:0}
   .qrbox{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1mm}
@@ -40,9 +40,9 @@
   .info .nm{font-size:4.2mm;font-weight:700;color:var(--navy);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .info .co{font-size:2.9mm;color:#374151;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .info .wt{font-size:2.6mm;color:var(--mut)}
-  .info .vd{font-size:2.8mm;font-weight:600;color:#854f0b;background:#faeeda;border-radius:99px;padding:.6mm 2.4mm;align-self:flex-start}
+  .info .vd{font-size:2.7mm;font-weight:600;color:#854f0b;background:#faeeda;border-radius:99px;padding:.6mm 2.4mm;align-self:flex-start;white-space:nowrap}
   .c-foot{flex:none;height:3.4mm;background:linear-gradient(90deg,var(--green) 0 33%,#f4b400 33% 66%,#db4437 66% 100%)}
-  .c-foot2{flex:none;font-size:2.2mm;color:var(--mut);padding:.8mm 3.5mm 1.2mm;display:flex;justify-content:space-between}
+  .c-foot2{flex:none;font-size:2mm;line-height:1.35;color:var(--mut);padding:.6mm 3.5mm 1mm;display:flex;justify-content:space-between;align-items:flex-end;gap:2mm}
 
   @media print{
     body{background:#fff;padding:0}
@@ -69,6 +69,7 @@ const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRj
 function hookUrl(){try{return localStorage.getItem('gs_webhook')||DEFAULT_URL}catch(e){return DEFAULT_URL}}
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const thDate=s=>{if(!s)return'—';const d=new Date(s);if(isNaN(d))return esc(s);return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'})};
+const dmy=s=>{if(!s)return'—';const d=new Date(s);if(isNaN(d))return esc(s);return('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear()};
 
 async function load(){
   try{
@@ -93,7 +94,7 @@ function render(list){
       <div class="c-top">
         <div class="sh">ZG</div>
         <div>
-          <div class="t1">บัตรผู้รับเหมา</div>
+          <div class="t1">บัตรผู้รับเหมา · 承包商通行证</div>
           <div class="t2">CONTRACTOR PASS</div>
         </div>
         <div class="tag">${esc(c.cardNo)}</div>
@@ -107,10 +108,10 @@ function render(list){
           <div class="nm">${esc(c.name)}</div>
           <div class="co">${esc(c.company)}</div>
           <div class="wt">${esc(c.workType||'')}${c.contact?' · ติดต่อ: '+esc(c.contact):''}</div>
-          <div class="vd">มีผลถึง ${thDate(c.validTo)}</div>
+          <div class="vd">มีผลถึง · 有效期至 · Valid: ${dmy(c.validTo)}</div>
         </div>
       </div>
-      <div class="c-foot2"><span>แสดงบัตรทุกครั้งที่เข้า-ออกพื้นที่ · สแกน QR ที่ป้อมยาม</span><span>ACCESS CTRL</span></div>
+      <div class="c-foot2"><span>แสดงบัตรทุกครั้งที่เข้า-ออกพื้นที่ · สแกน QR ที่ป้อมยาม<br>出入厂区请出示此卡并扫码 · Show this pass &amp; scan QR at the gate</span><span>ACCESS CTRL</span></div>
       <div class="c-foot"></div>
     </div>
   </div>`).join('');
