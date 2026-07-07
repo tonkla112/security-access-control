@@ -72,12 +72,8 @@
 <script>
 (function(){
   var HASH='a9c663ef254ce3b61dd4a6e9c7f92d5465ca666bc621a945ac5bfe84d5f69a91';
-  var KEY='ac_gate_ok', TTL=8*60*60*1000, MAX=5, LOCK=30000;
+  var MAX=5, LOCK=30000;
   var gate=document.getElementById('pinGate');
-  try{
-    var s=JSON.parse(sessionStorage.getItem(KEY)||'null');
-    if(s && s.h===HASH && (Date.now()-s.t)<TTL){ gate.parentNode.removeChild(gate); return; }
-  }catch(e){}
   var form=document.getElementById('pinForm'), inp=document.getElementById('pinInput'),
       btn=document.getElementById('pinBtn'), err=document.getElementById('pinErr');
   var fails=0, lockedUntil=0;
@@ -96,7 +92,6 @@
     try{
       var h=await hash(pin);
       if(h===HASH){
-        try{ sessionStorage.setItem(KEY, JSON.stringify({h:HASH,t:Date.now()})); }catch(e){}
         gate.parentNode.removeChild(gate);
         return;
       }
