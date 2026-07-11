@@ -204,6 +204,7 @@
     if (f('validTo') < f('validFrom')) {
       err.textContent = 'วันหมดอายุต้องไม่ก่อนวันเริ่ม'; err.style.display = 'block'; return;
     }
+    if (btn.disabled) return;
     btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
 
     var params = new URLSearchParams({
@@ -211,8 +212,11 @@
       phone:f('phone'), workType:f('workType'), validFrom:f('validFrom'),
       validTo:f('validTo'), contact:f('contact'), dept:f('dept'), via:via
     });
+    var ctrl = new AbortController();
+    var tmo = setTimeout(function(){ ctrl.abort(); }, 30000);
     try {
-      var r = await fetch(apiUrl() + '?' + params.toString());
+      var r = await fetch(apiUrl() + '?' + params.toString(), { signal: ctrl.signal });
+      clearTimeout(tmo);
       var j = await r.json();
       if (j.status !== 'ok') throw new Error(j.message || 'server error');
       document.getElementById('cardNo').textContent = j.cardNo;
@@ -224,11 +228,19 @@
       document.getElementById('formCard').style.display = 'none';
       document.getElementById('successCard').style.display = 'block';
       window.scrollTo(0,0);
-    } catch(e) {
-      err.textContent = 'บันทึกไม่สำเร็จ: ' + e.message + ' — ตรวจอินเทอร์เน็ตแล้วลองใหม่';
-      err.style.display = 'block';
-    } finally {
       btn.disabled = false; btn.textContent = 'ลงทะเบียน';
+    } catch(e) {
+      clearTimeout(tmo);
+      if (e && e.name === 'AbortError') {
+        err.textContent = '\u23f3 ระบบตอบช้าเกิน 30 วินาที — อย่ากดซ้ำทันที! เปิดชีท Contractors ตรวจก่อนว่ารายการเข้าไปแล้วหรือยัง (กันออกบัตรซ้ำ) ปุ่มจะเปิดให้ลองใหม่ใน 10 วินาที';
+        err.style.display = 'block';
+        btn.textContent = 'รอสักครู่...';
+        setTimeout(function(){ btn.disabled = false; btn.textContent = 'ลงทะเบียน'; }, 10000);
+      } else {
+        err.textContent = 'บันทึกไม่สำเร็จ: ' + e.message + ' — ตรวจอินเทอร์เน็ตแล้วลองใหม่';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'ลงทะเบียน';
+      }
     }
   });
 
