@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ข้อมูลดิบ · Access Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'IBM Plex Sans','IBM Plex Sans Thai',sans-serif;}</style>
+</head>
+<body>
+<div id="pinGate" style="position:fixed;inset:0;z-index:100000;background:#0f1b30;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="width:100%;max-width:340px;text-align:center;">
+    <div style="width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="#7ea2e8" stroke-width="1.8"/><path d="M8 10V7.5A4 4 0 0 1 16 7.5V10" stroke="#7ea2e8" stroke-width="1.8"/><circle cx="12" cy="15" r="1.6" fill="#7ea2e8"/></svg>
+    </div>
+    <div style="color:#fff;font-size:17px;font-weight:700;margin-bottom:4px;">ใส่รหัส PIN</div>
+    <div style="color:rgba(255,255,255,.5);font-size:12.5px;margin-bottom:18px;">ข้อมูลดิบ Google Sheet — เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาต</div>
+    <form id="pinForm" autocomplete="off">
+      <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••"
+        style="width:100%;padding:14px;border:1.5px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.06);color:#fff;font-size:24px;letter-spacing:10px;text-align:center;outline:none;font-family:'IBM Plex Mono',monospace;">
+      <button type="submit" id="pinBtn"
+        style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:12px;background:#2f6fed;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;">ปลดล็อก → เปิดชีท</button>
+    </form>
+    <div id="pinErr" style="display:none;margin-top:12px;color:#ff9d94;font-size:13px;"></div>
+    <a href="index.html" style="display:inline-block;margin-top:18px;color:rgba(255,255,255,.45);font-size:12.5px;text-decoration:none;">← กลับหน้าหลัก</a>
+  </div>
+</div>
+<script>
+(function(){
+  var HASH='a9c663ef254ce3b61dd4a6e9c7f92d5465ca666bc621a945ac5bfe84d5f69a91';
+  var SHEET='https://docs.google.com/spreadsheets/d/183dVsY52BAhfLl-m2_9glRN1h9YM7BAmT30-ke4X5p8/edit';
+  var MAX=5, LOCK=30000;
+  var form=document.getElementById('pinForm'), inp=document.getElementById('pinInput'),
+      btn=document.getElementById('pinBtn'), err=document.getElementById('pinErr');
+  var fails=0, lockedUntil=0;
+  function showErr(msg){ err.textContent=msg; err.style.display='block'; }
+  async function hash(pin){
+    var buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('acgate:'+pin));
+    return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  form.addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var now=Date.now();
+    if(now<lockedUntil){ showErr('ล็อกชั่วคราว รออีก '+Math.ceil((lockedUntil-now)/1000)+' วินาที'); return; }
+    var pin=inp.value.trim();
+    if(!pin){ inp.focus(); return; }
+    btn.disabled=true;
+    try{
+      var h=await hash(pin);
+      if(h===HASH){ location.replace(SHEET); return; }
+      fails++; inp.value=''; inp.focus();
+      if(fails>=MAX){ lockedUntil=Date.now()+LOCK; fails=0; showErr('ผิดครบ '+MAX+' ครั้ง — ล็อก 30 วินาที'); }
+      else{ showErr('PIN ไม่ถูกต้อง ('+fails+'/'+MAX+')'); }
+    }catch(e){ showErr('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง'); }
+    btn.disabled=false;
+  });
+  setTimeout(function(){ inp.focus(); },100);
+})();
+</script>
+</body>
+</html>
