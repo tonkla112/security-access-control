@@ -326,3 +326,108 @@ function fmt_(v) {
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
+
+
+/* ═══════════ Daily Email Alert (v7) ═══════════
+ * sendDailyAlert : ส่งเมลแจ้งเตือน HR — บัตรใกล้หมดอายุ ≤7 วัน + รถค้างในพื้นที่ข้ามคืน
+ * setupDailyAlert: รันครั้งเดียวเพื่อตั้ง trigger ทุกวัน 07:00 (ลบ trigger เก่าก่อน)
+ * ผู้รับ: Script Property "ALERT_EMAIL" (คั่นหลายคนด้วย ,) — ถ้าไม่ตั้ง ส่งหาเจ้าของสคริปต์
+ */
+function setupDailyAlert() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'sendDailyAlert') ScriptApp.deleteTrigger(triggers[i]);
+  }
+  ScriptApp.newTrigger('sendDailyAlert').timeBased().everyDays(1).atHour(7).create();
+  return 'OK: trigger ตั้งแล้ว ทุกวัน ~07:00';
+}
+
+function sendDailyAlert() {
+  var tz = 'Asia/Bangkok';
+  var ss = getSpreadsheet_();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  // ── 1) บัตรใกล้หมดอายุ ≤7 วัน ──
+  var expiring = [];
+  var reg = ss.getSheetByName(REG_SHEET);
+  if (reg && reg.getLastRow() > 1) {
+    var rv = reg.getRange(2, 1, reg.getLastRow() - 1, 12).getValues();
+    var soon = new Date(today.getTime() + 7 * 86400000);
+    for (var j = 0; j < rv.length; j++) {
+      var vt = rv[j][8];
+      var dt = vt instanceof Date ? vt : new Date(String(vt));
+      if (!isNaN(dt.getTime()) && dt >= today && dt <= soon) {
+        expiring.push({
+          cardNo: String(rv[j][0]), company: String(rv[j][2]), name: String(rv[j][3]),
+          validTo: Utilities.formatDate(dt, tz, 'dd/MM/yyyy'),
+          days: Math.round((dt.getTime() - today.getTime()) / 86400000)
+        });
+      }
+    }
+    expiring.sort(function(a, b) { return a.days - b.days; });
+  }
+
+  // ── 2) รถค้างในพื้นที่ข้ามคืน (เข้าก่อนวันนี้ ยังไม่มีออก) ──
+  var stuck = [];
+  var log = ss.getSheetByName(SHEET_NAME);
+  if (log && log.getLastRow() > 1) {
+    var n = log.getLastRow() - 1;
+    var take = Math.min(n, 400);
+    var rng = log.getRange(log.getLastRow() - take + 1, 1, take, 13);
+    var vals = rng.getValues();
+    var disp = rng.getDisplayValues();
+    var onsiteMap = {};
+    for (var i = 0; i < vals.length; i++) {
+      var r = vals[i];
+      var d = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0]).slice(0, 10);
+      var isIn = String(r[2]) === 'เข้า';
+      var key = String(r[3]) + '|' + String(r[5]);
+      if (isIn) onsiteMap[key] = { company: String(r[3]), plate: String(r[5]), date: d, time: disp[i][1], guard: String(r[12] || '') };
+      else delete onsiteMap[key];
+    }
+    var keys = Object.keys(onsiteMap);
+    for (var k = 0; k < keys.length; k++) {
+      var o = onsiteMap[keys[k]];
+      if (o.date < todayStr) stuck.push(o);
+    }
+  }
+
+  if (expiring.length === 0 && stuck.length === 0) return 'ไม่มีเรื่องต้องแจ้ง — ไม่ส่งเมล';
+
+  // ── 3) ประกอบอีเมล ──
+  var recipient = '';
+  try { recipient = PropertiesService.getScriptProperties().getProperty('ALERT_EMAIL') || ''; } catch (e) {}
+  if (!recipient) recipient = Session.getEffectiveUser().getEmail();
+
+  var subject = '[Access Control] แจ้งเตือนประจำวัน ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy')
+    + ' — บัตรใกล้หมดอายุ ' + expiring.length + ' ใบ · ค้างในพื้นที่ ' + stuck.length + ' รายการ';
+
+  var html = '<div style="font-family:sans-serif;max-width:640px;">'
+    + '<h2 style="color:#16243d;">แจ้งเตือนระบบควบคุมการเข้า-ออก</h2>';
+
+  if (stuck.length) {
+    html += '<h3 style="color:#b3261e;">🚨 ค้างในพื้นที่ข้ามคืน (' + stuck.length + ' รายการ)</h3>'
+      + '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px;">'
+      + '<tr style="background:#16243d;color:#fff;"><th>บริษัท</th><th>ทะเบียน</th><th>เข้าเมื่อ</th><th>ยามผู้บันทึก</th></tr>';
+    stuck.forEach(function(o) {
+      html += '<tr><td>' + o.company + '</td><td>' + o.plate + '</td><td>' + o.date + ' ' + o.time + '</td><td>' + (o.guard || '—') + '</td></tr>';
+    });
+    html += '</table><p style="font-size:12px;color:#666;">โปรดตรวจสอบว่าออกจริงแต่ไม่ได้สแกน หรือยังอยู่ในพื้นที่</p>';
+  }
+
+  if (expiring.length) {
+    html += '<h3 style="color:#a05a00;">⏳ บัตรใกล้หมดอายุภายใน 7 วัน (' + expiring.length + ' ใบ)</h3>'
+      + '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px;">'
+      + '<tr style="background:#16243d;color:#fff;"><th>บัตร</th><th>บริษัท</th><th>ชื่อ</th><th>หมดอายุ</th><th>เหลือ (วัน)</th></tr>';
+    expiring.forEach(function(c) {
+      html += '<tr><td>' + c.cardNo + '</td><td>' + c.company + '</td><td>' + c.name + '</td><td>' + c.validTo + '</td><td style="text-align:center;">' + c.days + '</td></tr>';
+    });
+    html += '</table><p style="font-size:12px;color:#666;">ต่ออายุ/ระงับบัตรได้ที่หน้า <a href="https://tonkla112.github.io/security-access-control/settings.html">ตั้งค่า · จัดการบัตร</a></p>';
+  }
+
+  html += '<p style="font-size:12px;color:#999;">Dashboard: <a href="https://tonkla112.github.io/security-access-control/dashboard.html">เปิดศูนย์ควบคุม</a> · อีเมลอัตโนมัติจาก Apps Script (แก้ผู้รับ: Script Property ALERT_EMAIL)</p></div>';
+
+  MailApp.sendEmail({ to: recipient, subject: subject, htmlBody: html });
+  return 'ส่งแล้ว -> ' + recipient + ' (expiring=' + expiring.length + ', stuck=' + stuck.length + ')';
+}
