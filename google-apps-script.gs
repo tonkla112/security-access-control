@@ -116,7 +116,7 @@ function stats_() {
       var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
       var n = log.getLastRow() - 1;
       var take = Math.min(n, 400);
-      var rng = log.getRange(log.getLastRow() - take + 1, 1, take, 9);
+      var rng = log.getRange(log.getLastRow() - take + 1, 1, take, 13);
       var vals = rng.getValues();
       var disp = rng.getDisplayValues();
       var onsiteMap = {};
@@ -138,7 +138,7 @@ function stats_() {
       for (var k = keys.length - 1; k >= 0; k--) out.onsite.push(onsiteMap[keys[k]]);
       var fi = [];
       for (var q = vals.length - 1; q >= 0 && fi.length < 10; q--) {
-        fi.push({ time: disp[q][1], company: String(vals[q][3]), companyZh: String(vals[q][4]), type: String(vals[q][2]) === 'เข้า' ? 'in' : 'out', plate: String(vals[q][5]), gate: Number(vals[q][8]) || 1, guard: String(vals[q][7] || '') });
+        fi.push({ time: disp[q][1], company: String(vals[q][3]), companyZh: String(vals[q][4]), type: String(vals[q][2]) === 'เข้า' ? 'in' : 'out', plate: String(vals[q][5]), gate: Number(vals[q][8]) || 1, guard: String(vals[q][12] || '') });
       }
       out.feed = fi;
       out.hourly = hourly;
@@ -247,13 +247,17 @@ function doPost(e) {
     var ss = getSpreadsheet_();
     var sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(['วันที่-เวลา (บันทึก)','เวลา (หน้างาน)','ประเภท','บริษัท','บริษัท (จีน)','ทะเบียนรถ','จำนวนคน','ผู้ติดต่อ','ประตู','รูปรถ','รูปบุคคล','รูปสิ่งของ']);
-      sheet.getRange(1, 1, 1, 12).setFontWeight('bold').setBackground('#16243d').setFontColor('#ffffff');
+      sheet.appendRow(['วันที่-เวลา (บันทึก)','เวลา (หน้างาน)','ประเภท','บริษัท','บริษัท (จีน)','ทะเบียนรถ','จำนวนคน','ผู้ติดต่อ','ประตู','รูปรถ','รูปบุคคล','รูปสิ่งของ','ยาม']);
+      sheet.getRange(1, 1, 1, 13).setFontWeight('bold').setBackground('#16243d').setFontColor('#ffffff');
       sheet.setFrozenRows(1);
     }
     // ชีทเดิม 9 คอลัมน์ -> เติมหัวคอลัมน์รูป 10-12
     if (!sheet.getRange(1, 10).getValue()) {
       sheet.getRange(1, 10, 1, 3).setValues([['รูปรถ','รูปบุคคล','รูปสิ่งของ']]).setFontWeight('bold').setBackground('#16243d').setFontColor('#ffffff');
+    }
+    // ชีทเดิม 12 คอลัมน์ -> เติมหัวคอลัมน์ยาม (13)
+    if (!sheet.getRange(1, 13).getValue()) {
+      sheet.getRange(1, 13).setValue('ยาม').setFontWeight('bold').setBackground('#16243d').setFontColor('#ffffff');
     }
     var links = savePhotos_(data);
     sheet.appendRow([
@@ -268,7 +272,8 @@ function doPost(e) {
       data.gate || '',
       links.vehicle || '',
       links.person || '',
-      links.goods || ''
+      links.goods || '',
+      data.guard || ''
     ]);
     return json_({ status: 'ok', photos: links });
   } catch (err) {
