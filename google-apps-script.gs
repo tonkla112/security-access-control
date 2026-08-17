@@ -12,7 +12,7 @@
  * - doGet ?action=stats    : dashboard stats
  *
  * Webhook URL:
- * https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec
+ * https://script.google.com/macros/s/AKfycbx34JVdFwPyUHF5HsLH3lqRtZ3ZsOQbPRYR5-5a8PiUA5zyV1IJWwn47OWweOuxqFd-LA/exec
  * Spreadsheet:
  * https://docs.google.com/spreadsheets/d/183dVsY52BAhfLl-m2_9glRN1h9YM7BAmT30-ke4X5p8/edit
  */

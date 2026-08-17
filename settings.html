@@ -150,9 +150,10 @@
 </div>
 
 <script>
-  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
+  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbx34JVdFwPyUHF5HsLH3lqRtZ3ZsOQbPRYR5-5a8PiUA5zyV1IJWwn47OWweOuxqFd-LA/exec';
   var OLD_URLS = [
-    'https://script.google.com/macros/s/AKfycbz0JDj87TPq6KzZ-8T_Tp0rSv808Q3W1TuMKbuWIhfjvUSyqRdL9qjXUZ82MTi2IR7v/exec'
+    'https://script.google.com/macros/s/AKfycbz0JDj87TPq6KzZ-8T_Tp0rSv808Q3W1TuMKbuWIhfjvUSyqRdL9qjXUZ82MTi2IR7v/exec',
+    'https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec'
   ];
   function cleanUrl(v){ return String(v || '').trim(); }
   function normalizeUrl(v){ v = cleanUrl(v); return OLD_URLS.indexOf(v) >= 0 ? DEFAULT_URL : (v || DEFAULT_URL); }

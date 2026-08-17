@@ -127,7 +127,7 @@
 </div>
 
 <script>
-const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbx34JVdFwPyUHF5HsLH3lqRtZ3ZsOQbPRYR5-5a8PiUA5zyV1IJWwn47OWweOuxqFd-LA/exec';
 function hookUrl(){try{return localStorage.getItem('gs_webhook')||DEFAULT_URL}catch(e){return DEFAULT_URL}}
 function accessToken(){try{return localStorage.getItem('ac_access_token')||''}catch(e){return ''}}
 function tokenParam(){return '&token='+encodeURIComponent(accessToken())}
