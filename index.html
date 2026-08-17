@@ -93,9 +93,10 @@
 <script>
 const URLW='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
 function hookUrl(){try{return localStorage.getItem('gs_webhook')||URLW}catch(e){return URLW}}
+function accessToken(){try{return localStorage.getItem('ac_access_token')||''}catch(e){return ''}}
 (async()=>{
   try{
-    const s=await fetch(hookUrl()+'?action=stats').then(r=>r.json());
+    const s=await fetch(hookUrl()+'?action=stats&token='+encodeURIComponent(accessToken())).then(r=>r.json());
     if(s.status!=='ok')return;
     document.getElementById('sOn').textContent=(s.onsite||[]).length;
     document.getElementById('sIn').textContent=s.todayIn;

@@ -67,13 +67,14 @@
 <script>
 const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
 function hookUrl(){try{return localStorage.getItem('gs_webhook')||DEFAULT_URL}catch(e){return DEFAULT_URL}}
+function accessToken(){try{return localStorage.getItem('ac_access_token')||''}catch(e){return ''}}
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const thDate=s=>{if(!s)return'—';const d=new Date(s);if(isNaN(d))return esc(s);return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'})};
 const dmy=s=>{if(!s)return'—';const d=new Date(s);if(isNaN(d))return esc(s);return('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear()};
 
 async function load(){
   try{
-    const res=await fetch(hookUrl()+'?action=list');
+    const res=await fetch(hookUrl()+'?action=list&token='+encodeURIComponent(accessToken()));
     const data=await res.json();
     if(data.status!=='ok')throw new Error(data.message||'error');
     const list=data.contractors||[];

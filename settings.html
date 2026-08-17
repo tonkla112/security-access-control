@@ -119,6 +119,10 @@
     <h2>🔗 Webhook URL (Google Apps Script)</h2>
     <label>URL ปัจจุบันของเครื่องนี้</label>
     <input type="text" id="whUrl">
+    <label>Admin token ของเครื่องนี้</label>
+    <input type="text" id="accessToken" placeholder="ตั้งค่าให้ตรงกับ Script Property ADMIN_TOKEN">
+    <label>ชื่อผู้แก้ไข / จุดใช้งานเครื่องนี้</label>
+    <input type="text" id="operatorName" placeholder="เช่น HR Office หรือ ป้อม 1">
     <div class="btnrow">
       <button class="b-save" onclick="saveUrl()">บันทึก</button>
       <button class="b-test" onclick="testUrl()">ทดสอบการเชื่อมต่อ</button>
@@ -147,17 +151,48 @@
 
 <script>
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
-  function apiUrl(){ try{ return localStorage.getItem('gs_webhook') || DEFAULT_URL; }catch(e){ return DEFAULT_URL; } }
+  var OLD_URLS = [
+    'https://script.google.com/macros/s/AKfycbz0JDj87TPq6KzZ-8T_Tp0rSv808Q3W1TuMKbuWIhfjvUSyqRdL9qjXUZ82MTi2IR7v/exec'
+  ];
+  function cleanUrl(v){ return String(v || '').trim(); }
+  function normalizeUrl(v){ v = cleanUrl(v); return OLD_URLS.indexOf(v) >= 0 ? DEFAULT_URL : (v || DEFAULT_URL); }
+  function apiUrl(){
+    try{
+      var saved = cleanUrl(localStorage.getItem('gs_webhook'));
+      var fixed = normalizeUrl(saved);
+      if (saved && fixed !== saved) localStorage.removeItem('gs_webhook');
+      return fixed;
+    }catch(e){ return DEFAULT_URL; }
+  }
+  function accessToken(){ try{ return localStorage.getItem('ac_access_token') || ''; }catch(e){ return ''; } }
+  function operatorName(){ try{ return localStorage.getItem('ac_operator_name') || ''; }catch(e){ return ''; } }
+  function tokenParam(){ return '&token=' + encodeURIComponent(accessToken()); }
+  function operatorParam(action){ return '&operator=' + encodeURIComponent(operatorName()) + '&source=settings&auditAction=' + encodeURIComponent(action); }
+  function esc(s){ return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function showMsg(id, ok, text){ var el=document.getElementById(id); el.className='msg '+(ok?'ok':'err'); el.textContent=text; }
+  function friendlyFetchError(e){
+    if (e && e.message === 'Failed to fetch') return 'ติดต่อ Apps Script ไม่ได้ — ตรวจ Webhook URL, deploy เป็น Web app แล้ว, และลองกด “คืนค่าเริ่มต้น” หาก URL เป็นตัวเก่า';
+    return e && e.message ? e.message : String(e);
+  }
 
   document.getElementById('whUrl').value = apiUrl();
+  document.getElementById('accessToken').value = accessToken();
+  document.getElementById('operatorName').value = operatorName();
 
   function saveUrl(){
-    var v = document.getElementById('whUrl').value.trim();
+    var v = normalizeUrl(document.getElementById('whUrl').value);
+    var tok = document.getElementById('accessToken').value.trim();
+    var op = document.getElementById('operatorName').value.trim();
     try {
       if (v && v !== DEFAULT_URL) localStorage.setItem('gs_webhook', v);
       else localStorage.removeItem('gs_webhook');
+      if (tok) localStorage.setItem('ac_access_token', tok);
+      else localStorage.removeItem('ac_access_token');
+      if (op) localStorage.setItem('ac_operator_name', op);
+      else localStorage.removeItem('ac_operator_name');
+      document.getElementById('whUrl').value = apiUrl();
       showMsg('whMsg', true, 'บันทึกแล้ว (มีผลเฉพาะเครื่องนี้)');
+      if (tok) loadList();
     } catch(e){ showMsg('whMsg', false, 'บันทึกไม่สำเร็จ: '+e.message); }
   }
   function resetUrl(){
@@ -166,13 +201,17 @@
     showMsg('whMsg', true, 'คืนค่าเริ่มต้นแล้ว');
   }
   async function testUrl(){
+    if (!accessToken()) {
+      showMsg('whMsg', false, 'กรอก Admin token ก่อนทดสอบการเชื่อมต่อ');
+      return;
+    }
     showMsg('whMsg', true, 'กำลังทดสอบ...');
     try {
-      var r = await fetch(document.getElementById('whUrl').value.trim());
+      var r = await fetch(normalizeUrl(document.getElementById('whUrl').value) + '?action=stats' + tokenParam());
       var t = await r.text();
-      if (t.indexOf('running') >= 0) showMsg('whMsg', true, '✓ เชื่อมต่อสำเร็จ — ' + t.slice(0, 120));
+      if (t.indexOf('"status":"ok"') >= 0) showMsg('whMsg', true, '✓ เชื่อมต่อสำเร็จ — admin token ใช้งานได้');
       else showMsg('whMsg', false, 'ตอบกลับไม่ถูกต้อง: ' + t.slice(0, 120));
-    } catch(e){ showMsg('whMsg', false, '✗ เชื่อมต่อไม่ได้: ' + e.message); }
+    } catch(e){ showMsg('whMsg', false, '✗ เชื่อมต่อไม่ได้: ' + friendlyFetchError(e)); }
   }
 
   function fmtThai(iso){ if(!iso) return '—'; var p=String(iso).slice(0,10).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso; }
@@ -180,19 +219,24 @@
 
   async function loadList(){
     var box = document.getElementById('listBox');
+    if (!accessToken()) {
+      box.className='loading';
+      box.textContent='กรอก Admin token แล้วกดบันทึกก่อนโหลดทะเบียน';
+      return;
+    }
     box.className='loading'; box.textContent='กำลังโหลดทะเบียน...';
     try {
-      var r = await fetch(apiUrl()+'?action=list&t='+Date.now());
+      var r = await fetch(apiUrl()+'?action=list&t='+Date.now()+tokenParam());
       var j = await r.json();
       if (j.status!=='ok') throw new Error(j.message||'server error');
       if (!j.contractors.length){ box.textContent='ยังไม่มีผู้รับเหมาลงทะเบียน'; return; }
       var rows = j.contractors.map(function(c){
         var exp = isExpired(c.validTo);
         return '<tr>'
-          + '<td class="mono">'+c.cardNo+'</td>'
-          + '<td>'+c.company+'<br><span style="color:#8a94a3;">'+c.name+'</span></td>'
+          + '<td class="mono">'+esc(c.cardNo)+'</td>'
+          + '<td>'+esc(c.company)+'<br><span style="color:#8a94a3;">'+esc(c.name)+'</span></td>'
           + '<td><span class="chip '+(exp?'c-exp':'c-ok')+'">'+(exp?'หมดอายุ':'ใช้งานได้')+'</span><br><span style="color:#8a94a3;font-size:11px;">'+fmtThai(c.validTo)+'</span></td>'
-          + '<td><input type="date" id="d_'+c.cardNo+'" value="'+String(c.validTo).slice(0,10)+'"><br>'
+          + '<td><input type="date" id="d_'+esc(c.cardNo)+'" value="'+esc(String(c.validTo).slice(0,10))+'"><br>'
           + '<div style="display:flex;gap:5px;margin-top:5px;">'
           + '<button class="b-row" onclick="updateCard(\''+c.cardNo+'\')">บันทึก</button>'
           + '<button class="b-off" onclick="deactivate(\''+c.cardNo+'\')">ระงับ</button>'
@@ -202,14 +246,14 @@
       }).join('');
       box.className='';
       box.innerHTML = '<table><thead><tr><th>บัตร</th><th>บริษัท / ชื่อ</th><th>สถานะ</th><th>หมดอายุ / จัดการ</th></tr></thead><tbody>'+rows+'</tbody></table>';
-    } catch(e){ box.className='loading'; box.textContent='โหลดไม่สำเร็จ: '+e.message; }
+    } catch(e){ box.className='loading'; box.textContent='โหลดไม่สำเร็จ: '+friendlyFetchError(e); }
   }
 
   async function updateCard(cardNo){
     var v = document.getElementById('d_'+cardNo).value;
     if (!v){ alert('เลือกวันหมดอายุก่อน'); return; }
     try {
-      var r = await fetch(apiUrl()+'?action=update&cardNo='+encodeURIComponent(cardNo)+'&validTo='+encodeURIComponent(v));
+      var r = await fetch(apiUrl()+'?action=update&cardNo='+encodeURIComponent(cardNo)+'&validTo='+encodeURIComponent(v)+tokenParam()+operatorParam('update_validTo'));
       var j = await r.json();
       if (j.status!=='ok') throw new Error(j.message||'error');
       loadList();
@@ -219,7 +263,7 @@
     if (!confirm('ระงับบัตร '+cardNo+' ? (ตั้งวันหมดอายุเป็นเมื่อวาน)')) return;
     var y = new Date(Date.now()-864e5).toISOString().slice(0,10);
     try {
-      var r = await fetch(apiUrl()+'?action=update&cardNo='+encodeURIComponent(cardNo)+'&validTo='+y);
+      var r = await fetch(apiUrl()+'?action=update&cardNo='+encodeURIComponent(cardNo)+'&validTo='+y+tokenParam()+operatorParam('deactivate'));
       var j = await r.json();
       if (j.status!=='ok') throw new Error(j.message||'error');
       loadList();

@@ -129,6 +129,8 @@
 <script>
 const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
 function hookUrl(){try{return localStorage.getItem('gs_webhook')||DEFAULT_URL}catch(e){return DEFAULT_URL}}
+function accessToken(){try{return localStorage.getItem('ac_access_token')||''}catch(e){return ''}}
+function tokenParam(){return '&token='+encodeURIComponent(accessToken())}
 const TH_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -146,7 +148,7 @@ async function load(){
   $('status').className='';
   $('report').style.display='none';
   try{
-    const res=await fetch(hookUrl()+'?action=report&month='+m);
+    const res=await fetch(hookUrl()+'?action=report&month='+m+tokenParam());
     const txt=await res.text();
     let data;
     try{data=JSON.parse(txt)}catch(e){
@@ -203,7 +205,7 @@ function render(m,d){
 
   $('stuckWrap').innerHTML=d.stuck.length?
     `<table><thead><tr><th>วันที่</th><th>เวลาเข้า</th><th>บริษัท</th><th>ทะเบียนรถ</th><th class="num">จำนวนคน</th></tr></thead><tbody>${
-      d.stuck.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.time)}</td><td>${esc(s.company)}</td><td>${esc(s.plate)}</td><td class="num">${s.people||'—'}</td></tr>`).join('')
+      d.stuck.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.time)}</td><td>${esc(s.company)}</td><td>${esc(s.plate)}</td><td class="num">${esc(s.people||'—')}</td></tr>`).join('')
     }</tbody></table><div class="sub" style="margin-top:6px">⚠ ควรตรวจสอบ: อาจยังอยู่ในพื้นที่จริง หรือ รปภ. ลืมบันทึกออก</div>`
     :'<div class="empty">✓ ไม่มีรายการค้าง — ทุกรายการเข้ามีบันทึกออกครบ</div>';
 

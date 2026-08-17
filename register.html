@@ -186,6 +186,9 @@
 <script>
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxGnSfkPWzMLWEcrF0hRjHiQ3AImrDDCp4W6Jqsi4gO3hV1NqRrAzcen0f6Tj9UOJx_/exec';
   function apiUrl(){ try{ return localStorage.getItem('gs_webhook') || DEFAULT_URL; }catch(e){ return DEFAULT_URL; } }
+  function accessToken(){ try{ return localStorage.getItem('ac_access_token') || ''; }catch(e){ return ''; } }
+  function operatorName(){ try{ return localStorage.getItem('ac_operator_name') || ''; }catch(e){ return ''; } }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   var via = new URLSearchParams(location.search).get('via') || 'office';
 
   // defaults: from = today, to = +30 days
@@ -210,7 +213,8 @@
     var params = new URLSearchParams({
       action:'register', company:f('company'), name:f('name'), id4:f('id4'),
       phone:f('phone'), workType:f('workType'), validFrom:f('validFrom'),
-      validTo:f('validTo'), contact:f('contact'), dept:f('dept'), via:via
+      validTo:f('validTo'), contact:f('contact'), dept:f('dept'), via:via,
+      token:accessToken(), operator:operatorName()
     });
     var ctrl = new AbortController();
     var tmo = setTimeout(function(){ ctrl.abort(); }, 30000);
@@ -224,7 +228,7 @@
       qb.innerHTML = '';
       new QRCode(qb, { text: j.cardNo, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
       document.getElementById('successMeta').innerHTML =
-        f('company') + '<br>' + f('name') + '<br>ใช้ได้ถึง ' + f('validTo').split('-').reverse().join('/');
+        esc(f('company')) + '<br>' + esc(f('name')) + '<br>ใช้ได้ถึง ' + esc(f('validTo').split('-').reverse().join('/'));
       document.getElementById('formCard').style.display = 'none';
       document.getElementById('successCard').style.display = 'block';
       window.scrollTo(0,0);

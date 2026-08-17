@@ -1,7 +1,11 @@
 /**
- * Security Access Control - Google Sheets Webhook  (v4)
- * ★ ตรงกับที่ deploy จริงใน Apps Script project (03/07/2026)
+ * Security Access Control - Google Sheets Webhook  (v6)
+ * ★ ตรงกับที่ deploy จริงใน Apps Script project (12/07/2026)
+ * v5: แก้ false alert "ค้างในพื้นที่" — normalize ทะเบียนรถ + จับคู่เข้า-ออกแบบ fallback
+ *     (normPlate_ / clearOnsite_) ใช้ใน sendDailyAlert, stats_, report_
+ * v6: sendDailyAlert เพิ่ม section "บัตรหมดอายุแล้ว" (ย้อนหลัง ≤30 วัน)
  * - doPost: log entry/exit -> 'AccessLog' (+ รูปถ่าย 3 ช่อง -> Google Drive, ลิงก์ลงคอลัมน์ 10-12)
+ *   รูปถ่ายเป็น private โดยค่าเริ่มต้น; ตั้ง Script Property PHOTO_SHARE_MODE=link หากต้องการเปิดแบบ anyone-with-link
  * - doGet ?action=register : register contractor -> 'Contractors', returns cardNo
  * - doGet ?action=list     : list contractors as JSON
  * - doGet ?action=update   : update validTo of a card
@@ -14,6 +18,7 @@
  */
 var SHEET_NAME = 'AccessLog';
 var REG_SHEET  = 'Contractors';
+var AUDIT_SHEET = 'AuditLog';
 
 function getSpreadsheet_() {
   var props = PropertiesService.getScriptProperties();
@@ -37,15 +42,56 @@ function getRegSheet_(ss) {
   return sh;
 }
 
+function getAuditSheet_(ss) {
+  var sh = ss.getSheetByName(AUDIT_SHEET);
+  if (!sh) sh = ss.insertSheet(AUDIT_SHEET);
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['วันที่-เวลา','action','cardNo','oldValidTo','newValidTo','operator','source','note']);
+    sh.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#16243d').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function appendAudit_(ss, action, cardNo, oldValidTo, newValidTo, operator, source, note) {
+  try {
+    var sh = getAuditSheet_(ss);
+    sh.appendRow([
+      new Date(),
+      action || '',
+      cardNo || '',
+      oldValidTo || '',
+      newValidTo || '',
+      operator || '',
+      source || '',
+      note || ''
+    ]);
+  } catch (e) {}
+}
+
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  if (p.action === 'list') return listContractors_();
-  if (p.action === 'register') return registerContractor_(p);
-  if (p.action === 'update') return updateContractor_(p);
-  if (p.action === 'stats') return stats_();
-  if (p.action === 'report') return report_(p);
-  var ss = getSpreadsheet_();
-  return ContentService.createTextOutput('Access Control webhook is running. Sheet: ' + ss.getUrl());
+  if (p.action === 'list') {
+    if (!hasRole_(p, 'guard')) return authError_();
+    return listContractors_(authRole_(p));
+  }
+  if (p.action === 'register') {
+    if (!hasRole_(p, 'admin')) return authError_();
+    return registerContractor_(p);
+  }
+  if (p.action === 'update') {
+    if (!hasRole_(p, 'admin')) return authError_();
+    return updateContractor_(p);
+  }
+  if (p.action === 'stats') {
+    if (!hasRole_(p, 'admin')) return authError_();
+    return stats_();
+  }
+  if (p.action === 'report') {
+    if (!hasRole_(p, 'admin')) return authError_();
+    return report_(p);
+  }
+  return ContentService.createTextOutput('Access Control webhook is running.');
 }
 
 function registerContractor_(p) {
@@ -57,6 +103,7 @@ function registerContractor_(p) {
     var sh = getRegSheet_(ss);
     var cardNo = 'CTR-' + ('000' + sh.getLastRow()).slice(-3);
     sh.appendRow([cardNo, new Date(), p.company || '', p.name || '', "'" + (p.id4 || ''), "'" + (p.phone || ''), p.workType || '', p.validFrom || '', p.validTo || '', p.contact || '', p.dept || '', p.via || 'office']);
+    appendAudit_(ss, 'register', cardNo, '', p.validTo || '', p.operator || '', p.via || 'office', (p.company || '') + ' / ' + (p.name || ''));
     return json_({ status: 'ok', cardNo: cardNo });
   } catch (err) {
     return json_({ status: 'error', message: String(err) });
@@ -76,7 +123,10 @@ function updateContractor_(p) {
     var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
     for (var i = 0; i < vals.length; i++) {
       if (String(vals[i][0]).toUpperCase() === String(p.cardNo).toUpperCase()) {
+        var oldValidTo = sh.getRange(i + 2, 9).getValue();
+        var auditAction = p.auditAction || (isPastDate_(p.validTo) ? 'deactivate' : 'update_validTo');
         sh.getRange(i + 2, 9).setValue(p.validTo);
+        appendAudit_(ss, auditAction, String(vals[i][0]), fmt_(oldValidTo), p.validTo, p.operator || '', p.source || 'settings', p.note || '');
         return json_({ status: 'ok', cardNo: String(vals[i][0]), validTo: p.validTo });
       }
     }
@@ -88,7 +138,7 @@ function updateContractor_(p) {
   }
 }
 
-function listContractors_() {
+function listContractors_(role) {
   try {
     var ss = getSpreadsheet_();
     var sh = ss.getSheetByName(REG_SHEET);
@@ -97,7 +147,18 @@ function listContractors_() {
       var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues();
       for (var i = 0; i < vals.length; i++) {
         var r = vals[i];
-        out.push({ cardNo: String(r[0]), company: String(r[2]), name: String(r[3]), phone: String(r[5]), workType: String(r[6]), validFrom: fmt_(r[7]), validTo: fmt_(r[8]), contact: String(r[9]), dept: String(r[10]) });
+        var phone = String(r[5] || '');
+        out.push({
+          cardNo: String(r[0]),
+          company: String(r[2]),
+          name: String(r[3]),
+          phone: role === 'admin' ? phone : phone.slice(-4),
+          workType: String(r[6]),
+          validFrom: fmt_(r[7]),
+          validTo: fmt_(r[8]),
+          contact: String(r[9]),
+          dept: String(r[10])
+        });
       }
     }
     return json_({ status: 'ok', contractors: out });
@@ -125,14 +186,16 @@ function stats_() {
         var r = vals[i];
         var d = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0]).slice(0, 10);
         var isIn = String(r[2]) === 'เข้า';
-        var key = String(r[3]) + '|' + String(r[5]);
+        var comp = String(r[3]);
+        var plate = normPlate_(r[5]);
+        var key = comp + '|' + plate;
         if (d === today) {
           if (isIn) out.todayIn++; else out.todayOut++;
           var hh = String(disp[i][1]).slice(0, 2);
           if (/^\d\d$/.test(hh)) hourly[hh] = (hourly[hh] || 0) + 1;
         }
-        if (isIn) onsiteMap[key] = { company: String(r[3]), companyZh: String(r[4]), plate: String(r[5]), time: disp[i][1] };
-        else delete onsiteMap[key];
+        if (isIn) onsiteMap[key] = { company: comp, companyZh: String(r[4]), plate: plate || '—', time: disp[i][1], seq: i };
+        else clearOnsite_(onsiteMap, comp, plate);
       }
       var keys = Object.keys(onsiteMap);
       for (var k = keys.length - 1; k >= 0; k--) out.onsite.push(onsiteMap[keys[k]]);
@@ -211,9 +274,10 @@ function report_(p) {
         else if (pc > 0) out.photo.partial++;
         else out.photo.none++;
         if (pc > 0) c.withPhoto++;
-        var key = comp + '|' + String(r[5]);
-        if (isIn) open[key] = { date: d, time: String(disp[i][1] || ''), company: comp, plate: String(r[5]), people: ppl };
-        else delete open[key];
+        var plateN = normPlate_(r[5]);
+        var key = comp + '|' + plateN;
+        if (isIn) open[key] = { date: d, time: String(disp[i][1] || ''), company: comp, plate: plateN || '—', people: ppl, seq: i };
+        else clearOnsite_(open, comp, plateN);
       }
       var ks = Object.keys(open);
       for (var k = 0; k < ks.length; k++) out.stuck.push(open[ks[k]]);
@@ -244,6 +308,7 @@ function report_(p) {
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
+    if (!hasRole_(data, 'guard')) return authError_();
     var ss = getSpreadsheet_();
     var sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
     if (sheet.getLastRow() === 0) {
@@ -300,7 +365,7 @@ function savePhotos_(data) {
       var fname = stamp + '_' + (data.type === 'in' ? 'IN' : 'OUT') + (data.plate ? '_' + data.plate : '') + '_' + names[k] + '.jpg';
       var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', fname);
       var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      applyPhotoSharing_(file);
       out[k] = file.getUrl();
     } catch (err) {}
   }
@@ -318,13 +383,104 @@ function getPhotoFolder_() {
   return f;
 }
 
+function photoShareMode_() {
+  var mode = '';
+  try { mode = PropertiesService.getScriptProperties().getProperty('PHOTO_SHARE_MODE') || ''; } catch (e) {}
+  mode = String(mode).toLowerCase().trim();
+  return mode === 'link' ? 'link' : 'private';
+}
+
+function applyPhotoSharing_(file) {
+  if (photoShareMode_() === 'link') {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return;
+  }
+  try {
+    file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  } catch (e) {}
+}
+
 function fmt_(v) {
   if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Bangkok', 'yyyy-MM-dd');
   return String(v || '');
 }
 
+function isPastDate_(v) {
+  var d = new Date(String(v || ''));
+  if (isNaN(d.getTime())) return false;
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
+function htmlEsc_(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function authError_() {
+  return json_({ status: 'error', message: 'unauthorized' });
+}
+
+function hasRole_(p, needed) {
+  var role = authRole_(p);
+  if (needed === 'guard') return role === 'guard' || role === 'admin';
+  if (needed === 'admin') return role === 'admin';
+  return false;
+}
+
+function authRole_(p) {
+  var got = String((p && (p.token || p.accessToken || p.apiToken)) || '');
+  if (!got) return '';
+  var props = null;
+  try { props = PropertiesService.getScriptProperties(); } catch (e) {}
+  if (!props) return '';
+
+  var admin = props.getProperty('ADMIN_TOKEN') || '';
+  var legacy = props.getProperty('ACCESS_TOKEN') || '';
+  var guard = props.getProperty('GUARD_TOKEN') || '';
+
+  if (admin && got === admin) return 'admin';
+  if (legacy && got === legacy) return 'admin';
+  if (guard && got === guard) return 'guard';
+  return '';
+}
+
+/**
+ * Normalize ทะเบียนรถ: ช่องว่าง/—/-/– ถือว่า "ไม่มีทะเบียน" เหมือนกันหมด
+ * แก้ปัญหา เข้า="1234" แต่ ออก="—" แล้วจับคู่กันไม่เจอ → ค้างในระบบตลอด
+ */
+function normPlate_(v) {
+  var s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  if (s === '—' || s === '-' || s === '–' || s === '－') s = '';
+  return s;
+}
+
+/**
+ * เคลียร์รายการ "เข้า" ที่ค้างอยู่ เมื่อมีรายการ "ออก"
+ * ลำดับการจับคู่: 1) บริษัท+ทะเบียนตรงกันเป๊ะ  2) ไม่เจอ → รายการเข้าล่าสุดของบริษัทเดียวกัน
+ */
+function clearOnsite_(map, company, plate) {
+  var exact = company + '|' + plate;
+  if (map[exact]) { delete map[exact]; return; }
+  var bestKey = null;
+  var keys = Object.keys(map);
+  for (var i = 0; i < keys.length; i++) {
+    var o = map[keys[i]];
+    if (o.company === company) {
+      if (bestKey === null || (o.seq || 0) > (map[bestKey].seq || 0)) bestKey = keys[i];
+    }
+  }
+  if (bestKey !== null) delete map[bestKey];
 }
 
 
@@ -348,24 +504,34 @@ function sendDailyAlert() {
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
 
-  // ── 1) บัตรใกล้หมดอายุ ≤7 วัน ──
+  // ── 1) บัตรใกล้หมดอายุ ≤7 วัน + บัตรหมดอายุแล้ว (ย้อนหลังไม่เกิน 30 วัน) ──
   var expiring = [];
+  var expired = [];
   var reg = ss.getSheetByName(REG_SHEET);
   if (reg && reg.getLastRow() > 1) {
     var rv = reg.getRange(2, 1, reg.getLastRow() - 1, 12).getValues();
     var soon = new Date(today.getTime() + 7 * 86400000);
+    var expiredCut = new Date(today.getTime() - 30 * 86400000); // เกิน 30 วันถือว่าจัดการแล้ว ไม่เตือนซ้ำ
     for (var j = 0; j < rv.length; j++) {
       var vt = rv[j][8];
       var dt = vt instanceof Date ? vt : new Date(String(vt));
-      if (!isNaN(dt.getTime()) && dt >= today && dt <= soon) {
+      if (isNaN(dt.getTime())) continue;
+      if (dt >= today && dt <= soon) {
         expiring.push({
           cardNo: String(rv[j][0]), company: String(rv[j][2]), name: String(rv[j][3]),
           validTo: Utilities.formatDate(dt, tz, 'dd/MM/yyyy'),
           days: Math.round((dt.getTime() - today.getTime()) / 86400000)
         });
+      } else if (dt < today && dt >= expiredCut) {
+        expired.push({
+          cardNo: String(rv[j][0]), company: String(rv[j][2]), name: String(rv[j][3]),
+          validTo: Utilities.formatDate(dt, tz, 'dd/MM/yyyy'),
+          days: Math.round((today.getTime() - dt.getTime()) / 86400000)
+        });
       }
     }
     expiring.sort(function(a, b) { return a.days - b.days; });
+    expired.sort(function(a, b) { return b.days - a.days; });
   }
 
   // ── 2) รถค้างในพื้นที่ข้ามคืน (เข้าก่อนวันนี้ ยังไม่มีออก) ──
@@ -382,9 +548,11 @@ function sendDailyAlert() {
       var r = vals[i];
       var d = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0]).slice(0, 10);
       var isIn = String(r[2]) === 'เข้า';
-      var key = String(r[3]) + '|' + String(r[5]);
-      if (isIn) onsiteMap[key] = { company: String(r[3]), plate: String(r[5]), date: d, time: disp[i][1], guard: String(r[12] || '') };
-      else delete onsiteMap[key];
+      var comp = String(r[3]);
+      var plate = normPlate_(r[5]);
+      var key = comp + '|' + plate;
+      if (isIn) onsiteMap[key] = { company: comp, plate: plate || '—', date: d, time: disp[i][1], guard: String(r[12] || ''), seq: i };
+      else clearOnsite_(onsiteMap, comp, plate);
     }
     var keys = Object.keys(onsiteMap);
     for (var k = 0; k < keys.length; k++) {
@@ -393,7 +561,7 @@ function sendDailyAlert() {
     }
   }
 
-  if (expiring.length === 0 && stuck.length === 0) return 'ไม่มีเรื่องต้องแจ้ง — ไม่ส่งเมล';
+  if (expiring.length === 0 && stuck.length === 0 && expired.length === 0) return 'ไม่มีเรื่องต้องแจ้ง — ไม่ส่งเมล';
 
   // ── 3) ประกอบอีเมล ──
   var recipient = '';
@@ -401,7 +569,7 @@ function sendDailyAlert() {
   if (!recipient) recipient = Session.getEffectiveUser().getEmail();
 
   var subject = '[Access Control] แจ้งเตือนประจำวัน ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy')
-    + ' — บัตรใกล้หมดอายุ ' + expiring.length + ' ใบ · ค้างในพื้นที่ ' + stuck.length + ' รายการ';
+    + ' — หมดอายุแล้ว ' + expired.length + ' · ใกล้หมดอายุ ' + expiring.length + ' · ค้างในพื้นที่ ' + stuck.length;
 
   var html = '<div style="font-family:sans-serif;max-width:640px;">'
     + '<h2 style="color:#16243d;">แจ้งเตือนระบบควบคุมการเข้า-ออก</h2>';
@@ -411,9 +579,19 @@ function sendDailyAlert() {
       + '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px;">'
       + '<tr style="background:#16243d;color:#fff;"><th>บริษัท</th><th>ทะเบียน</th><th>เข้าเมื่อ</th><th>ยามผู้บันทึก</th></tr>';
     stuck.forEach(function(o) {
-      html += '<tr><td>' + o.company + '</td><td>' + o.plate + '</td><td>' + o.date + ' ' + o.time + '</td><td>' + (o.guard || '—') + '</td></tr>';
+      html += '<tr><td>' + htmlEsc_(o.company) + '</td><td>' + htmlEsc_(o.plate) + '</td><td>' + htmlEsc_(o.date + ' ' + o.time) + '</td><td>' + htmlEsc_(o.guard || '—') + '</td></tr>';
     });
     html += '</table><p style="font-size:12px;color:#666;">โปรดตรวจสอบว่าออกจริงแต่ไม่ได้สแกน หรือยังอยู่ในพื้นที่</p>';
+  }
+
+  if (expired.length) {
+    html += '<h3 style="color:#b3261e;">⛔ บัตรหมดอายุแล้ว ยังไม่ต่อ/ระงับ (' + expired.length + ' ใบ)</h3>'
+      + '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px;">'
+      + '<tr style="background:#16243d;color:#fff;"><th>บัตร</th><th>บริษัท</th><th>ชื่อ</th><th>หมดอายุ</th><th>เกินมา (วัน)</th></tr>';
+    expired.forEach(function(c) {
+      html += '<tr><td>' + htmlEsc_(c.cardNo) + '</td><td>' + htmlEsc_(c.company) + '</td><td>' + htmlEsc_(c.name) + '</td><td>' + htmlEsc_(c.validTo) + '</td><td style="text-align:center;color:#b3261e;font-weight:bold;">' + htmlEsc_(c.days) + '</td></tr>';
+    });
+    html += '</table><p style="font-size:12px;color:#666;">โปรดต่ออายุหรือระงับบัตร และติดตามคืนบัตรจากผู้รับเหมา (แสดงเฉพาะที่หมดอายุไม่เกิน 30 วัน)</p>';
   }
 
   if (expiring.length) {
@@ -421,7 +599,7 @@ function sendDailyAlert() {
       + '<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px;">'
       + '<tr style="background:#16243d;color:#fff;"><th>บัตร</th><th>บริษัท</th><th>ชื่อ</th><th>หมดอายุ</th><th>เหลือ (วัน)</th></tr>';
     expiring.forEach(function(c) {
-      html += '<tr><td>' + c.cardNo + '</td><td>' + c.company + '</td><td>' + c.name + '</td><td>' + c.validTo + '</td><td style="text-align:center;">' + c.days + '</td></tr>';
+      html += '<tr><td>' + htmlEsc_(c.cardNo) + '</td><td>' + htmlEsc_(c.company) + '</td><td>' + htmlEsc_(c.name) + '</td><td>' + htmlEsc_(c.validTo) + '</td><td style="text-align:center;">' + htmlEsc_(c.days) + '</td></tr>';
     });
     html += '</table><p style="font-size:12px;color:#666;">ต่ออายุ/ระงับบัตรได้ที่หน้า <a href="https://tonkla112.github.io/security-access-control/settings.html">ตั้งค่า · จัดการบัตร</a></p>';
   }
@@ -429,5 +607,5 @@ function sendDailyAlert() {
   html += '<p style="font-size:12px;color:#999;">Dashboard: <a href="https://tonkla112.github.io/security-access-control/dashboard.html">เปิดศูนย์ควบคุม</a> · อีเมลอัตโนมัติจาก Apps Script (แก้ผู้รับ: Script Property ALERT_EMAIL)</p></div>';
 
   MailApp.sendEmail({ to: recipient, subject: subject, htmlBody: html });
-  return 'ส่งแล้ว -> ' + recipient + ' (expiring=' + expiring.length + ', stuck=' + stuck.length + ')';
+  return 'ส่งแล้ว -> ' + recipient + ' (expired=' + expired.length + ', expiring=' + expiring.length + ', stuck=' + stuck.length + ')';
 }
